@@ -1,41 +1,31 @@
 using System;
 
-public class Fraction
-{
-    private int _top;
-    private int _bottom;
+public class Fraction{
+    private int _numerator;
+    private int _denominator;
 
-    public Fraction()
-    {
+    public Fraction() {
         // Default to 1/1
-        _top = 1;
-        _bottom = 1;
+        _numerator = 1;
+        _denominator = 1;
     }
 
-    public Fraction(int wholeNumber)
-    {
-        _top = wholeNumber;
-        _bottom = 1;
+    public Fraction(int wholeNumber) {
+        _numerator = wholeNumber;
+        _denominator = 1;
     }
 
-    public Fraction(int top, int bottom)
-    {
-        _top = top;
-        _bottom = bottom;
+    public Fraction(int numerator, int denominator) {
+        _numerator = numerator;
+        _denominator = denominator;
     }
 
-    public string GetFractionString()
-    {
-        // Notice that this is not stored as a member variable.
-        // Is is just a temporary, local variable that will be recomputed each time this is called.
-        string text = $"{_top}/{_bottom}";
+    public string GetFracString() {
+        string text = $"{_numerator}/{_denominator}";
         return text;
     }
 
-    public double GetDecimalValue()
-    {
-        // Notice that this is not stored as a member variable.
-        // Is will be recomputed each time this is called.
-        return (double)_top / (double)_bottom;
+    public double GetDecValue() {
+        return (double)_numerator / (double)_denominator;
     }
 }

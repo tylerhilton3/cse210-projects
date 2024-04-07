@@ -71,7 +71,6 @@ class Journal
     }
     public void LoadJournal(string filename)
     {
-        // Check if the file exists before attempting to load
         if (!File.Exists(filename))
         {
             Console.WriteLine("The file does not exist.");
@@ -90,7 +89,7 @@ class Journal
                     if (parts.Length != 3)
                     {
                         Console.WriteLine("Skipping invalid entry.");
-                        continue; // Skip any lines that do not have exactly 3 parts.
+                        continue;
                     }
 
                     var entry = new JournalEntry
@@ -104,7 +103,6 @@ class Journal
                 }
             }
 
-            // Replace current entries only after successful loading
             entries = loadedEntries;
             Console.WriteLine("Journal loaded successfully.");
         }

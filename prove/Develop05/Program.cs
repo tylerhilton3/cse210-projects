@@ -34,6 +34,33 @@ class SimpleGoal : Goal {
     }
 }
 
+class ChecklistGoal : Goal {
+    public bool IsComplete { get; internal set; }
+    public int CompletionCount { get; internal set; }
+    public int TargetCount { get; private set; }
+    public int BonusPoints { get; private set; }
+
+    public ChecklistGoal(string name, int points, int targetCount, int bonusPoints)
+        : base(name, points) {
+        TargetCount = targetCount;
+        BonusPoints = bonusPoints;
+        CompletionCount = 0;
+        IsComplete = false;
+    }
+
+    public override void RecordCompletion() {
+        CompletionCount++;
+        if (CompletionCount >= TargetCount) {
+            IsComplete = true;
+        }
+    }
+
+    public override string GetStatus() {
+        return IsComplete
+            ? $"[X] {Name} ({Points} points each, {BonusPoints} bonus points on completion, Completed {CompletionCount}/{TargetCount} times)"
+            : $"[ ] {Name} ({Points} points each, {BonusPoints} bonus points on completion, Completed {CompletionCount}/{TargetCount} times)";
+    }
+}
 
 
 class EternalGoal : Goal {
@@ -55,60 +82,95 @@ class GoalKeeper {
     public GoalKeeper() {
         LoadGoals();
     }
+    public void ShowChecklistGoals() {
+        var checklistGoals = goals.OfType<ChecklistGoal>().ToList();
+        if (checklistGoals.Any()) {
+            foreach (var goal in checklistGoals) {
+                Console.WriteLine(goal.GetStatus());
+            }
+        } else {
+            Console.WriteLine("\nYou don't have any checklist goals yet!");
+        }
+    }
 
     private void SaveGoals() {
         using (var sw = new StreamWriter(FilePath, false)) {
             sw.WriteLine($"Score:{totalScore}");
 
             foreach (var goal in goals) {
-                var goalType = goal is SimpleGoal ? "SimpleGoal" : "EternalGoal";
+                var goalType = goal.GetType().Name;
                 var completionStatus = goal is SimpleGoal sGoal ? sGoal.IsComplete.ToString() : "false";
-                sw.WriteLine($"{goalType},{goal.Name},{goal.Points},{completionStatus}");
+                
+                string line = goalType switch
+                {
+                    "SimpleGoal" => $"{goalType},{goal.Name},{goal.Points},{completionStatus}",
+                    "EternalGoal" => $"{goalType},{goal.Name},{goal.Points},{completionStatus}",
+                    "ChecklistGoal" => goal is ChecklistGoal cGoal
+                        ? $"{goalType},{goal.Name},{goal.Points},{completionStatus},{cGoal.CompletionCount},{cGoal.TargetCount},{cGoal.BonusPoints}"
+                        : throw new InvalidOperationException("ChecklistGoal expected"),
+                    _ => throw new InvalidOperationException("Unknown goal type")
+                };
+
+                sw.WriteLine(line);
             }
         }
     }
-
-
-
-
 
 
     private void LoadGoals() {
-    if (!File.Exists(FilePath)) {
-        return;
-    }
-
-    using (var sr = new StreamReader(FilePath)) {
-        var scoreLine = sr.ReadLine();
-        if (scoreLine != null && scoreLine.StartsWith("Score:")) {
-            var scorePart = scoreLine.Split(':')[1];
-            if (int.TryParse(scorePart, out int loadedScore)) {
-                totalScore = loadedScore;
-            }
+        if (!File.Exists(FilePath)) {
+            return;
         }
 
-        string line;
-        while ((line = sr.ReadLine()) != null) {
-            var parts = line.Split(',');
-            if (parts.Length == 4) {
-                var type = parts[0];
-                var name = parts[1];
-                var points = int.TryParse(parts[2], out int pt) ? pt : 0;
-                bool isComplete = bool.TryParse(parts[3], out bool complete) && complete;
-                Goal goal = null;
-                if (type == "SimpleGoal") {
-                    goal = new SimpleGoal(name, points, isComplete);
-                } else if (type == "EternalGoal") {
-                    goal = new EternalGoal(name, points);
+        using (var sr = new StreamReader(FilePath)) {
+            var scoreLine = sr.ReadLine();
+            if (scoreLine != null && scoreLine.StartsWith("Score:")) {
+                var scorePart = scoreLine.Split(':')[1];
+                if (int.TryParse(scorePart, out int loadedScore)) {
+                    totalScore = loadedScore;
                 }
+            }
 
-                if(goal != null) {
-                    goals.Add(goal);
+            string line;
+            while ((line = sr.ReadLine()) != null) {
+                var parts = line.Split(',');
+                if (parts.Length >= 4) {
+                    var type = parts[0];
+                    var name = parts[1];
+                    var points = int.TryParse(parts[2], out int pt) ? pt : 0;
+                    Goal goal = null;
+                    bool isComplete = false;
+                    switch (type) {
+                        case "SimpleGoal":
+                            isComplete = bool.TryParse(parts[3], out bool simpleComplete) && simpleComplete;
+                            goal = new SimpleGoal(name, points, isComplete);
+                            break;
+                        case "EternalGoal":
+                            goal = new EternalGoal(name, points);
+                            break;
+                        case "ChecklistGoal":
+                            if (parts.Length >= 7) {
+                                isComplete = bool.TryParse(parts[3], out bool checklistComplete) && checklistComplete;
+                                var completionCount = int.TryParse(parts[4], out int compCount) ? compCount : 0;
+                                var targetCount = int.TryParse(parts[5], out int targCount) ? targCount : 0;
+                                var bonusPoints = int.TryParse(parts[6], out int bonPoints) ? bonPoints : 0;
+                                goal = new ChecklistGoal(name, points, targetCount, bonusPoints) {
+                                    IsComplete = isComplete,
+                                    CompletionCount = completionCount
+                                };
+                            }
+                            break;
+                    }
+
+                    if (goal != null) {
+                        goals.Add(goal);
+                    }
                 }
             }
         }
     }
-}
+
+
 
 
 
@@ -130,6 +192,9 @@ class GoalKeeper {
         if (goal != null) {
             goal.RecordCompletion();
             totalScore += goal.Points;
+            if (goal is ChecklistGoal checklistGoal && checklistGoal.CompletionCount == checklistGoal.TargetCount) {
+                totalScore += checklistGoal.BonusPoints;
+            }
             SaveGoals();
         }
     }
@@ -156,6 +221,10 @@ class GoalKeeper {
         Console.WriteLine("\nEternal Goals:");
         ShowGoals(true);
         Thread.Sleep(1000);
+
+        Console.WriteLine("\nChecklist Goals:");
+        ShowChecklistGoals();
+        Thread.Sleep(1000);
     }
 
     public int GetTotalScore() {
@@ -175,12 +244,13 @@ class Program {
             Console.WriteLine("\nWhat would you like to do?");
             Console.WriteLine("1. Show simple goals");
             Console.WriteLine("2. Show eternal goals");
-            Console.WriteLine("3. Add goal");
-            Console.WriteLine("4. Delete goal");
-            Console.WriteLine("5. Record goal completion");
-            Console.WriteLine("6. Show score");
-            Console.WriteLine("7. Show all goals");
-            Console.WriteLine("8. Exit");
+            Console.WriteLine("3. Show checklist goals");
+            Console.WriteLine("4. Show all goals");
+            Console.WriteLine("5. Add goal");
+            Console.WriteLine("6. Delete goal");
+            Console.WriteLine("7. Record goal completion");
+            Console.WriteLine("8. Show score");
+            Console.WriteLine("9. Exit");
             Thread.Sleep(1000);
 
             string input = Console.ReadLine();
@@ -192,21 +262,24 @@ class Program {
                     keeper.ShowGoals(true);
                     break;
                 case "3":
-                    AddGoal(keeper);
+                    keeper.ShowChecklistGoals();
                     break;
                 case "4":
-                    DeleteGoal(keeper);
-                    break;
-                case "5":
-                    RecordGoalCompletion(keeper);
-                    break;
-                case "6":
-                    Console.WriteLine($"\nYour score is: {keeper.GetTotalScore()}");
-                    break;
-                case "7":
                     keeper.ShowAllGoals();
                     break;
+                case "5":
+                    AddGoal(keeper);
+                    break;
+                case "6":
+                    DeleteGoal(keeper);
+                    break;
+                case "7":
+                    RecordGoalCompletion(keeper);
+                    break;
                 case "8":
+                    Console.WriteLine($"\nYour score is: {keeper.GetTotalScore()}");
+                    break;
+                case "9":
                     running = false;
                     break;
                 default:
@@ -217,30 +290,41 @@ class Program {
     }
 
     static void AddGoal(GoalKeeper keeper) {
-        string type;
-        do {
-            Console.WriteLine("Is it a simple (s) or eternal (e) goal?");
-            type = Console.ReadLine().ToLower();
-        } while (type != "s" && type != "simple" && type != "e" && type != "eternal");
+        Console.WriteLine("Is it a simple (s), eternal (e), or checklist (c) goal?");
+        string type = Console.ReadLine().ToLower();
 
         Console.WriteLine("Enter the name of the goal:");
         string name = Console.ReadLine();
 
+        Console.WriteLine("Enter the points for the goal:");
         int points;
-        while (true) {
-            Console.WriteLine("Enter the points for the goal:");
-            if (int.TryParse(Console.ReadLine(), out points)) {
-                break;
-            }
+        while (!int.TryParse(Console.ReadLine(), out points)) {
             Console.WriteLine("Invalid input. Please enter an integer for the points.");
         }
 
-        if (type == "s" || type == "simple") {
+        if (type == "c" || type == "checklist") {
+            Console.WriteLine("Enter the target count for the goal:");
+            int targetCount;
+            while (!int.TryParse(Console.ReadLine(), out targetCount)) {
+                Console.WriteLine("Invalid input. Please enter an integer for the target count.");
+            }
+
+            Console.WriteLine("Enter the bonus points for completing the goal:");
+            int bonusPoints;
+            while (!int.TryParse(Console.ReadLine(), out bonusPoints)) {
+                Console.WriteLine("Invalid input. Please enter an integer for the bonus points.");
+            }
+
+            keeper.AddGoal(new ChecklistGoal(name, points, targetCount, bonusPoints));
+        } else if (type == "s" || type == "simple") {
             keeper.AddGoal(new SimpleGoal(name, points));
-        } else {
+        } else if (type == "e" || type == "eternal") {
             keeper.AddGoal(new EternalGoal(name, points));
+        } else {
+            Console.WriteLine("Invalid goal type.");
         }
     }
+
 
     static void DeleteGoal(GoalKeeper keeper) {
         Console.WriteLine("\nEnter the name of the goal to delete:");

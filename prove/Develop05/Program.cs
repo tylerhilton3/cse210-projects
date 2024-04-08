@@ -18,7 +18,6 @@ abstract class Goal {
 }
 
 class SimpleGoal : Goal {
-    // Declare IsComplete only in SimpleGoal
     public bool IsComplete { get; internal set; }
 
     public SimpleGoal(string name, int points, bool isComplete = false)
@@ -41,7 +40,6 @@ class EternalGoal : Goal {
     public EternalGoal(string name, int points) : base(name, points) { }
 
     public override void RecordCompletion() {
-        // Eternal goals are never complete
     }
 
     public override string GetStatus() {
@@ -60,16 +58,14 @@ class GoalKeeper {
 
     private void SaveGoals() {
         using (var sw = new StreamWriter(FilePath, false)) {
-            // Write the total score on the first line
             sw.WriteLine($"Score:{totalScore}");
 
-            // Write the details of each goal on subsequent lines
             foreach (var goal in goals) {
                 var goalType = goal is SimpleGoal ? "SimpleGoal" : "EternalGoal";
                 var completionStatus = goal is SimpleGoal sGoal ? sGoal.IsComplete.ToString() : "false";
                 sw.WriteLine($"{goalType},{goal.Name},{goal.Points},{completionStatus}");
             }
-        } // StreamWriter is disposed and closed here, automatically
+        }
     }
 
 
@@ -83,7 +79,6 @@ class GoalKeeper {
     }
 
     using (var sr = new StreamReader(FilePath)) {
-        // Read the total score from the first line
         var scoreLine = sr.ReadLine();
         if (scoreLine != null && scoreLine.StartsWith("Score:")) {
             var scorePart = scoreLine.Split(':')[1];
@@ -92,7 +87,6 @@ class GoalKeeper {
             }
         }
 
-        // Now read the goals
         string line;
         while ((line = sr.ReadLine()) != null) {
             var parts = line.Split(',');
@@ -109,7 +103,7 @@ class GoalKeeper {
                 }
 
                 if(goal != null) {
-                    goals.Add(goal); // Add the goal to the list
+                    goals.Add(goal);
                 }
             }
         }
@@ -136,7 +130,7 @@ class GoalKeeper {
         if (goal != null) {
             goal.RecordCompletion();
             totalScore += goal.Points;
-            SaveGoals(); // Save the updated list of goals and score
+            SaveGoals();
         }
     }
 

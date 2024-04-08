@@ -4,7 +4,6 @@ using System.Linq;
 
 class Program {
     static void Main() {
-        // Define a scripture reference and text.
         var scriptureReference = new ScriptureReference("Proverbs", 3, 5, 6);
         var scriptureText = "Trust in the LORD with all your heart and lean not on your own understanding; " +
                             "in all your ways submit to him, and he will make your paths straight.";
